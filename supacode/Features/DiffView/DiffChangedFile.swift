@@ -1,6 +1,6 @@
-import SwiftUI
+import Foundation
 
-enum DiffFileStatus: Hashable, Sendable {
+nonisolated enum DiffFileStatus: Hashable, Sendable {
   case modified
   case added
   case deleted
@@ -9,7 +9,7 @@ enum DiffFileStatus: Hashable, Sendable {
   case unknown
 }
 
-struct DiffChangedFile: Identifiable, Hashable, Sendable {
+nonisolated struct DiffChangedFile: Identifiable, Hashable, Sendable {
   let status: DiffFileStatus
   let oldPath: String?
   let newPath: String?
@@ -36,17 +36,6 @@ struct DiffChangedFile: Identifiable, Hashable, Sendable {
     case .renamed: "R"
     case .copied: "C"
     case .unknown: "?"
-    }
-  }
-
-  var statusColor: Color {
-    switch status {
-    case .modified: .orange
-    case .added: .green
-    case .deleted: .red
-    case .renamed: .blue
-    case .copied: .blue
-    case .unknown: .secondary
     }
   }
 

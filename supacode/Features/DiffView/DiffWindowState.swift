@@ -10,9 +10,9 @@ final class DiffWindowState {
   var selectedFile: DiffChangedFile?
   var diffDocument: DiffDocument?
   var isLoadingFiles = false
-  var isLoadingDiff = false
 
-  private let gitClient = GitClient()
+  private var documentCache: [String: DiffDocument] = [:]
+  private var loadTask: Task<Void, Never>?
 
   func load(worktreeURL: URL, branchName: String) {
     self.worktreeURL = worktreeURL
@@ -20,74 +20,97 @@ final class DiffWindowState {
     changedFiles = []
     selectedFile = nil
     diffDocument = nil
-    Task { await loadChangedFiles() }
+    documentCache = [:]
+    loadTask?.cancel()
+    loadTask = Task { await loadAllFiles(worktreeURL: worktreeURL) }
   }
 
   func refresh() {
-    guard worktreeURL != nil else { return }
-    Task { await loadChangedFiles() }
+    guard let worktreeURL else { return }
+    documentCache = [:]
+    loadTask?.cancel()
+    loadTask = Task { await loadAllFiles(worktreeURL: worktreeURL) }
   }
 
   func selectFile(_ file: DiffChangedFile) {
     guard selectedFile != file else { return }
     selectedFile = file
-    diffDocument = nil
-    Task { await loadDiffForSelectedFile() }
+    diffDocument = documentCache[file.id]
   }
 
   // MARK: - Private
 
-  private func loadChangedFiles() async {
-    guard let worktreeURL else { return }
+  private func loadAllFiles(worktreeURL: URL) async {
     isLoadingFiles = true
-    async let trackedOutput = gitClient.diffNameStatus(at: worktreeURL)
-    async let untrackedPaths = gitClient.untrackedFilePaths(at: worktreeURL)
+    async let trackedOutput = GitClient().diffNameStatus(at: worktreeURL)
+    async let untrackedPaths = GitClient().untrackedFilePaths(at: worktreeURL)
     let trackedFiles = DiffChangedFile.parseNameStatus(await trackedOutput)
     let untrackedFiles = await untrackedPaths.map {
       DiffChangedFile(status: .added, oldPath: nil, newPath: $0)
     }
     let files = trackedFiles + untrackedFiles
     changedFiles = files
+
+    // Load all documents concurrently
+    let documents = await Self.loadAllDocuments(files: files, worktreeURL: worktreeURL)
+    guard !Task.isCancelled else { return }
+    documentCache = documents
     isLoadingFiles = false
 
-    if let selectedFile, files.contains(selectedFile) {
-      await loadDiffForSelectedFile()
+    // Auto-select
+    if let selectedFile, documents[selectedFile.id] != nil {
+      diffDocument = documents[selectedFile.id]
     } else if let first = files.first {
       selectedFile = first
-      await loadDiffForSelectedFile()
+      diffDocument = documents[first.id]
     } else {
       selectedFile = nil
       diffDocument = nil
     }
   }
 
-  private func loadDiffForSelectedFile() async {
-    guard let worktreeURL, let file = selectedFile else {
-      diffDocument = nil
-      return
+  private nonisolated static func loadAllDocuments(
+    files: [DiffChangedFile],
+    worktreeURL: URL
+  ) async -> [String: DiffDocument] {
+    await withTaskGroup(of: (String, DiffDocument).self) { group in
+      for file in files {
+        group.addTask {
+          let doc = await loadDocument(for: file, worktreeURL: worktreeURL)
+          return (file.id, doc)
+        }
+      }
+      var result: [String: DiffDocument] = [:]
+      for await (id, doc) in group {
+        result[id] = doc
+      }
+      return result
     }
-    isLoadingDiff = true
+  }
 
+  private nonisolated static func loadDocument(
+    for file: DiffChangedFile,
+    worktreeURL: URL
+  ) async -> DiffDocument {
+    let gitClient = GitClient()
     let oldContents: String
     let newContents: String
 
     switch file.status {
     case .added:
       oldContents = ""
-      newContents = await readWorkingFile(file.displayPath, in: worktreeURL)
+      newContents = readFile(worktreeURL.appending(path: file.displayPath))
     case .deleted:
       oldContents = await gitClient.showFileAtHEAD(file.oldPath ?? "", in: worktreeURL) ?? ""
       newContents = ""
     case .renamed:
       oldContents = await gitClient.showFileAtHEAD(file.oldPath ?? "", in: worktreeURL) ?? ""
-      newContents = await readWorkingFile(file.newPath ?? "", in: worktreeURL)
+      newContents = readFile(worktreeURL.appending(path: file.newPath ?? ""))
     default:
       let path = file.displayPath
       oldContents = await gitClient.showFileAtHEAD(path, in: worktreeURL) ?? ""
-      newContents = await readWorkingFile(path, in: worktreeURL)
+      newContents = readFile(worktreeURL.appending(path: path))
     }
-
-    guard selectedFile == file else { return }
 
     let diffFile = DiffFile(
       oldPath: file.oldPath,
@@ -95,14 +118,10 @@ final class DiffWindowState {
       oldContents: oldContents,
       newContents: newContents,
     )
-    diffDocument = DiffDocument(files: [diffFile], title: file.displayName)
-    isLoadingDiff = false
+    return DiffDocument(files: [diffFile], title: file.displayName)
   }
 
-  private func readWorkingFile(_ relativePath: String, in worktreeURL: URL) async -> String {
-    let fileURL = worktreeURL.appending(path: relativePath)
-    return await Task.detached {
-      (try? String(contentsOf: fileURL, encoding: .utf8)) ?? ""
-    }.value
+  private nonisolated static func readFile(_ url: URL) -> String {
+    (try? String(contentsOf: url, encoding: .utf8)) ?? ""
   }
 }

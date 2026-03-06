@@ -51,10 +51,7 @@ struct DiffWindowContentView: View {
 
   private var diffDetail: some View {
     Group {
-      if state.isLoadingDiff {
-        ProgressView()
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
-      } else if let document = state.diffDocument {
+      if let document = state.diffDocument {
         DiffView(
           document: document,
           configuration: DiffConfiguration(
@@ -62,6 +59,9 @@ struct DiffWindowContentView: View {
             showsFileHeaders: false,
           ),
         )
+      } else if state.isLoadingFiles {
+        ProgressView()
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
       } else {
         ContentUnavailableView(
           "Select a File",
@@ -69,6 +69,21 @@ struct DiffWindowContentView: View {
           description: Text("Choose a file from the sidebar to view changes"),
         )
       }
+    }
+  }
+}
+
+// MARK: - Status Color
+
+extension DiffFileStatus {
+  var color: Color {
+    switch self {
+    case .modified: .orange
+    case .added: .green
+    case .deleted: .red
+    case .renamed: .blue
+    case .copied: .blue
+    case .unknown: .secondary
     }
   }
 }
@@ -83,7 +98,7 @@ private struct FileRowView: View {
       Text(file.statusSymbol)
         .font(.caption)
         .monospaced()
-        .foregroundStyle(file.statusColor)
+        .foregroundStyle(file.status.color)
         .frame(width: 14, alignment: .center)
       VStack(alignment: .leading, spacing: 1) {
         Text(file.displayName)
