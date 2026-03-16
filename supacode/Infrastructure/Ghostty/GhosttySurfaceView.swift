@@ -762,7 +762,16 @@ final class GhosttySurfaceView: NSView, Identifiable {
 
   func updateSurfaceSize() {
     guard let surface else { return }
-    let backingSize = convertToBacking(bounds.size)
+    // When pinnedSize is set (canvas mode), convertToBacking() includes the
+    // .scaleEffect() layer transform, producing scale-dependent backing sizes.
+    // Use the pinned size with the window's raw backing scale factor instead.
+    let backingSize: CGSize
+    if let pinnedSize = scrollWrapper?.pinnedSize {
+      let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
+      backingSize = CGSize(width: pinnedSize.width * scale, height: pinnedSize.height * scale)
+    } else {
+      backingSize = convertToBacking(bounds.size)
+    }
     if backingSize == lastBackingSize {
       return
     }
