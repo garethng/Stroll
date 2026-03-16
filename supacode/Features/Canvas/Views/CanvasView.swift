@@ -9,8 +9,8 @@ struct CanvasView: View {
   @State private var lastCanvasOffset: CGSize = .zero
   @State private var canvasScale: CGFloat = 1.0
   @State private var lastCanvasScale: CGFloat = 1.0
-  @State private var focusedWorktreeID: Worktree.ID?
-  @State private var activeResize: [Worktree.ID: ActiveResize] = [:]
+  @State private var focusedTabID: TerminalTabID?
+  @State private var activeResize: [TerminalTabID: ActiveResize] = [:]
 
   private let minCardWidth: CGFloat = 300
   private let minCardHeight: CGFloat = 200
@@ -30,43 +30,46 @@ struct CanvasView: View {
           .onTapGesture { unfocusAll() }
           .gesture(canvasPanGesture)
 
-        // Cards layer: uses .offset() (not .position()) to avoid parent size
-        // proposals reaching the NSView, keeping terminal grid stable during zoom.
+        // Cards layer: one card per open tab across all worktrees.
+        // Uses .offset() (not .position()) to avoid parent size proposals
+        // reaching the NSView, keeping terminal grid stable during zoom.
         ForEach(activeStates, id: \.worktreeID) { state in
-          if let surfaceView = state.activeSurfaceView {
-            let worktreeID = state.worktreeID
-            let baseLayout = resolvedLayout(for: worktreeID, canvasSize: geometry.size)
-            let resized = resizedFrame(for: worktreeID, baseLayout: baseLayout)
-            let screenCenter = screenPosition(for: resized.center)
-            let cardTotalHeight = resized.size.height + titleBarHeight
+          ForEach(state.tabManager.tabs) { tab in
+            if let surfaceView = state.surfaceView(for: tab.id) {
+              let cardKey = tab.id.rawValue.uuidString
+              let baseLayout = resolvedLayout(for: cardKey, canvasSize: geometry.size)
+              let resized = resizedFrame(for: tab.id, baseLayout: baseLayout)
+              let screenCenter = screenPosition(for: resized.center)
+              let cardTotalHeight = resized.size.height + titleBarHeight
 
-            CanvasCardView(
-              repositoryName: Repository.name(for: state.repositoryRootURL),
-              worktreeName: state.worktreeName,
-              surfaceView: surfaceView,
-              isFocused: focusedWorktreeID == worktreeID,
-              hasUnseenNotification: state.hasUnseenNotification,
-              cardSize: resized.size,
-              canvasScale: canvasScale,
-              onTap: { focusCard(worktreeID, states: activeStates) },
-              onDragCommit: { translation in commitDrag(for: worktreeID, translation: translation) },
-              onResize: { edge, translation in
-                activeResize[worktreeID] = ActiveResize(
-                  edge: edge,
-                  translation: CGSize(
-                    width: translation.width / canvasScale,
-                    height: translation.height / canvasScale
+              CanvasCardView(
+                repositoryName: Repository.name(for: state.repositoryRootURL),
+                worktreeName: tab.title,
+                surfaceView: surfaceView,
+                isFocused: focusedTabID == tab.id,
+                hasUnseenNotification: state.hasUnseenNotification,
+                cardSize: resized.size,
+                canvasScale: canvasScale,
+                onTap: { focusCard(tab.id, surfaceView: surfaceView, states: activeStates) },
+                onDragCommit: { translation in commitDrag(for: cardKey, translation: translation) },
+                onResize: { edge, translation in
+                  activeResize[tab.id] = ActiveResize(
+                    edge: edge,
+                    translation: CGSize(
+                      width: translation.width / canvasScale,
+                      height: translation.height / canvasScale
+                    )
                   )
-                )
-              },
-              onResizeEnd: { commitResize(for: worktreeID, surfaceView: surfaceView) }
-            )
-            .scaleEffect(canvasScale, anchor: .center)
-            .offset(
-              x: screenCenter.x - resized.size.width / 2,
-              y: screenCenter.y - cardTotalHeight / 2
-            )
-            .zIndex(focusedWorktreeID == worktreeID ? 1 : 0)
+                },
+                onResizeEnd: { commitResize(for: tab.id, cardKey: cardKey, surfaceView: surfaceView) }
+              )
+              .scaleEffect(canvasScale, anchor: .center)
+              .offset(
+                x: screenCenter.x - resized.size.width / 2,
+                y: screenCenter.y - cardTotalHeight / 2
+              )
+              .zIndex(focusedTabID == tab.id ? 1 : 0)
+            }
           }
         }
       }
@@ -119,17 +122,17 @@ struct CanvasView: View {
 
   // MARK: - Layout
 
-  private func resolvedLayout(for worktreeID: Worktree.ID, canvasSize: CGSize) -> CanvasCardLayout {
-    if let existing = layoutStore.cardLayouts[worktreeID] {
+  private func resolvedLayout(for cardKey: String, canvasSize: CGSize) -> CanvasCardLayout {
+    if let existing = layoutStore.cardLayouts[cardKey] {
       return existing
     }
-    let position = autoPosition(for: worktreeID, canvasSize: canvasSize)
+    let position = autoPosition(canvasSize: canvasSize)
     let layout = CanvasCardLayout(position: position)
-    layoutStore.cardLayouts[worktreeID] = layout
+    layoutStore.cardLayouts[cardKey] = layout
     return layout
   }
 
-  private func autoPosition(for worktreeID: Worktree.ID, canvasSize: CGSize) -> CGPoint {
+  private func autoPosition(canvasSize: CGSize) -> CGPoint {
     let existingCount = layoutStore.cardLayouts.count
     let cardW = CanvasCardLayout.defaultSize.width
     let cardH = CanvasCardLayout.defaultSize.height + titleBarHeight
@@ -146,7 +149,7 @@ struct CanvasView: View {
   /// Compute effective center and size accounting for resize only (not drag).
   /// Drag is applied separately via `.offset()` to avoid layout passes.
   private func resizedFrame(
-    for worktreeID: Worktree.ID,
+    for tabID: TerminalTabID,
     baseLayout: CanvasCardLayout
   ) -> (center: CGPoint, size: CGSize) {
     var centerX = baseLayout.position.x
@@ -154,7 +157,7 @@ struct CanvasView: View {
     var width = baseLayout.size.width
     var height = baseLayout.size.height
 
-    if let resize = activeResize[worktreeID] {
+    if let resize = activeResize[tabID] {
       let translationX = resize.translation.width
       let translationY = resize.translation.height
 
@@ -212,57 +215,60 @@ struct CanvasView: View {
 
   // MARK: - Drag
 
-  private func commitDrag(for worktreeID: Worktree.ID, translation: CGSize) {
-    if var layout = layoutStore.cardLayouts[worktreeID] {
+  private func commitDrag(for cardKey: String, translation: CGSize) {
+    if var layout = layoutStore.cardLayouts[cardKey] {
       layout.position.x += translation.width
       layout.position.y += translation.height
-      layoutStore.cardLayouts[worktreeID] = layout
+      layoutStore.cardLayouts[cardKey] = layout
     }
   }
 
   // MARK: - Resize
 
-  private func commitResize(for worktreeID: Worktree.ID, surfaceView: GhosttySurfaceView) {
-    guard activeResize[worktreeID] != nil else { return }
-    if var layout = layoutStore.cardLayouts[worktreeID] {
-      let resized = resizedFrame(for: worktreeID, baseLayout: layout)
+  private func commitResize(for tabID: TerminalTabID, cardKey: String, surfaceView: GhosttySurfaceView) {
+    guard activeResize[tabID] != nil else { return }
+    if var layout = layoutStore.cardLayouts[cardKey] {
+      let resized = resizedFrame(for: tabID, baseLayout: layout)
       layout.position = resized.center
       layout.size = resized.size
-      layoutStore.cardLayouts[worktreeID] = layout
+      layoutStore.cardLayouts[cardKey] = layout
     }
-    activeResize[worktreeID] = nil
+    activeResize[tabID] = nil
     surfaceView.needsLayout = true
     surfaceView.needsDisplay = true
   }
 
   // MARK: - Focus
 
-  private func focusCard(_ worktreeID: Worktree.ID, states: [WorktreeTerminalState]) {
-    let previousID = focusedWorktreeID
-    focusedWorktreeID = worktreeID
+  private func focusCard(
+    _ tabID: TerminalTabID,
+    surfaceView: GhosttySurfaceView,
+    states: [WorktreeTerminalState]
+  ) {
+    let previousTabID = focusedTabID
+    focusedTabID = tabID
 
-    if let previousID, previousID != worktreeID,
-      let previousState = states.first(where: { $0.worktreeID == previousID }),
-      let previousSurface = previousState.activeSurfaceView
-    {
-      previousSurface.focusDidChange(false)
+    if let previousTabID, previousTabID != tabID {
+      for state in states {
+        if let previousSurface = state.surfaceView(for: previousTabID) {
+          previousSurface.focusDidChange(false)
+          break
+        }
+      }
     }
 
-    if let currentState = states.first(where: { $0.worktreeID == worktreeID }),
-      let currentSurface = currentState.activeSurfaceView
-    {
-      currentSurface.focusDidChange(true)
-      currentSurface.requestFocus()
-    }
+    surfaceView.focusDidChange(true)
+    surfaceView.requestFocus()
   }
 
   private func unfocusAll() {
-    guard let previousID = focusedWorktreeID else { return }
-    focusedWorktreeID = nil
-    if let state = terminalManager.activeWorktreeStates.first(where: { $0.worktreeID == previousID }),
-      let surface = state.activeSurfaceView
-    {
-      surface.focusDidChange(false)
+    guard let previousTabID = focusedTabID else { return }
+    focusedTabID = nil
+    for state in terminalManager.activeWorktreeStates {
+      if let surface = state.surfaceView(for: previousTabID) {
+        surface.focusDidChange(false)
+        break
+      }
     }
   }
 
@@ -273,15 +279,21 @@ struct CanvasView: View {
       state.setAllSurfacesOccluded()
     }
     for state in terminalManager.activeWorktreeStates {
-      state.activeSurfaceView?.setOcclusion(true)
+      for tab in state.tabManager.tabs {
+        state.surfaceView(for: tab.id)?.setOcclusion(true)
+      }
     }
   }
 
   private func deactivateCanvas() {
-    focusedWorktreeID = nil
+    focusedTabID = nil
     for state in terminalManager.activeWorktreeStates {
-      state.activeSurfaceView?.setOcclusion(false)
-      state.activeSurfaceView?.focusDidChange(false)
+      for tab in state.tabManager.tabs {
+        if let surface = state.surfaceView(for: tab.id) {
+          surface.setOcclusion(false)
+          surface.focusDidChange(false)
+        }
+      }
     }
   }
 }
