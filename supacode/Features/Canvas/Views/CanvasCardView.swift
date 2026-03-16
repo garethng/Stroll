@@ -39,7 +39,6 @@ struct CanvasCardView: View {
     .contentShape(.rect)
     .accessibilityAddTraits(.isButton)
     .onTapGesture { onTap() }
-    .fixedSize()
     .offset(dragTranslation)
     .overlay { resizeHandles }
   }

@@ -50,6 +50,7 @@ struct CanvasView: View {
             },
             onResizeEnd: { commitResize(for: worktreeID, surfaceView: surfaceView) }
           )
+          .frame(width: resized.size.width, height: resized.size.height + titleBarHeight)
           .scaleEffect(canvasScale, anchor: .center)
           .position(screenPosition(for: resized.center))
           .zIndex(focusedWorktreeID == worktreeID ? 1 : 0)
