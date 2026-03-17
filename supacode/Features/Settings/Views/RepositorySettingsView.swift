@@ -194,7 +194,7 @@ struct RepositorySettingsView: View {
       } header: {
         VStack(alignment: .leading, spacing: 4) {
           Text("Custom Commands")
-          Text("Onevcat-only commands shown after Run in the toolbar (up to 3)")
+          Text("Custom commands shown after Run in the toolbar (up to 3)")
             .foregroundStyle(.secondary)
         }
       }
