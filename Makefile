@@ -76,22 +76,21 @@ install-release: build-ghostty-xcframework # Build Release, sign locally, instal
 	echo "team: $$TEAM_ID"; \
 	APPLE_TEAM_ID="$$TEAM_ID" DEVELOPER_ID_IDENTITY_SHA="$$IDENTITY_SHA" $(MAKE) archive; \
 	mkdir -p build; \
-	cat > build/ExportOptions.plist <<-PLIST
-	<?xml version="1.0" encoding="UTF-8"?>
-	<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-	<plist version="1.0">
-	<dict>
-	  <key>method</key>
-	  <string>developer-id</string>
-	  <key>signingStyle</key>
-	  <string>manual</string>
-	  <key>signingCertificate</key>
-	  <string>$$SIGNING_IDENTITY</string>
-	  <key>teamID</key>
-	  <string>$$TEAM_ID</string>
-	</dict>
-	</plist>
-	PLIST
+	printf '%s\n' \
+		'<?xml version="1.0" encoding="UTF-8"?>' \
+		'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+		'<plist version="1.0">' \
+		'<dict>' \
+		'  <key>method</key>' \
+		'  <string>developer-id</string>' \
+		'  <key>signingStyle</key>' \
+		'  <string>manual</string>' \
+		'  <key>signingCertificate</key>' \
+		"  <string>$$SIGNING_IDENTITY</string>" \
+		'  <key>teamID</key>' \
+		"  <string>$$TEAM_ID</string>" \
+		'</dict>' \
+		'</plist>' > build/ExportOptions.plist; \
 	$(MAKE) export-archive; \
 	APP_PATH="$$(find build/export -name '*.app' -maxdepth 3 -print -quit)"; \
 	if [ ! -d "$$APP_PATH" ]; then \
