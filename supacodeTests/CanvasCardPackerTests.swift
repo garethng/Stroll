@@ -38,31 +38,27 @@ struct CanvasCardPackerTests {
     #expect(result.layouts.count == 5)
   }
 
-  // MARK: - Row wrapping & compactness
+  // MARK: - Scale maximization
 
-  @Test func wideCardAloneWhenCompactnessWins() throws {
-    // 1 wide + 2 narrow cards with 16:9 target.
-    // [wide][narrow+narrow]: area=1.29M, ratio=0.87 → score wins (compact)
-    // [wide+narrow][narrow]: area=1.85M, ratio=1.25 → score loses (too spread)
-    let cards = [
-      card("wide", width: 960, height: 550),
-      card("narrow1", width: 500, height: 550),
-      card("narrow2", width: 500, height: 550),
-    ]
+  @Test func threeEqualCardsFormOnePlusTwoOnWidescreen() throws {
+    // 3 equal default-size cards on 16:9 viewport.
+    // [1][2] gives scale 0.000822, beats single-column (0.000551) and single-row (0.000717).
+    let cards = (0..<3).map { card("card\($0)") }
     let result = packer.pack(cards: cards, targetRatio: 16.0 / 9.0)
 
-    let wide = try #require(result.layouts["wide"])
-    let narrow1 = try #require(result.layouts["narrow1"])
-    let narrow2 = try #require(result.layouts["narrow2"])
+    let c0 = try #require(result.layouts["card0"])
+    let c1 = try #require(result.layouts["card1"])
+    let c2 = try #require(result.layouts["card2"])
 
-    // Wide card alone on row 1, both narrow cards share row 2.
-    let wideBottom = wide.position.y + (wide.size.height + 28) / 2
-    let narrow1Top = narrow1.position.y - (narrow1.size.height + 28) / 2
-    #expect(narrow1Top >= wideBottom)
-    #expect(narrow1.position.y == narrow2.position.y)
+    // Row 1: card0 alone
+    // Row 2: card1, card2 side by side
+    #expect(c0.position.y < c1.position.y)
+    #expect(c1.position.y == c2.position.y)
   }
 
-  @Test func wideCardAloneWhenNarrowCardsAreBroader() throws {
+  @Test func wideCardAloneWhenItMaximizesScale() throws {
+    // With these sizes on a 1.5 ratio viewport, [wide][n1+n2] gives higher
+    // scale than other configs because the bounding box fits better.
     let cards = [
       card("wide", width: 800, height: 400),
       card("narrow1", width: 700, height: 400),
@@ -74,7 +70,6 @@ struct CanvasCardPackerTests {
     let narrow1 = try #require(result.layouts["narrow1"])
     let narrow2 = try #require(result.layouts["narrow2"])
 
-    // Wide card alone on row 1, both narrow cards on row 2.
     let wideBottom = wide.position.y + (wide.size.height + 28) / 2
     let narrow1Top = narrow1.position.y - (narrow1.size.height + 28) / 2
     #expect(narrow1Top >= wideBottom)
@@ -127,30 +122,9 @@ struct CanvasCardPackerTests {
     }
   }
 
-  // MARK: - Aspect ratio targeting
-
-  @Test func resultRatioIsReasonable() {
-    let cards = [
-      card("a", width: 700, height: 500),
-      card("b", width: 500, height: 400),
-      card("c", width: 600, height: 350),
-      card("d", width: 800, height: 450),
-      card("e", width: 550, height: 500),
-      card("f", width: 650, height: 380),
-    ]
-    let targetRatio: CGFloat = 16.0 / 9.0
-    let result = packer.pack(cards: cards, targetRatio: targetRatio)
-
-    guard result.boundingSize.height > 0 else { return }
-    let actualRatio = result.boundingSize.width / result.boundingSize.height
-    // Combined scoring allows wider range — ratio doesn't have to be perfect.
-    #expect(actualRatio > 0.3 && actualRatio < 5.0)
-  }
-
   // MARK: - Row centering
 
   @Test func shorterRowIsCenteredWithinBoundingWidth() throws {
-    // Wide card on row 1, narrow card on row 2 → narrow row is centered.
     let cards = [
       card("wide", width: 1000, height: 400),
       card("narrow", width: 400, height: 400),
@@ -160,10 +134,8 @@ struct CanvasCardPackerTests {
     let wide = try #require(result.layouts["wide"])
     let narrow = try #require(result.layouts["narrow"])
 
-    // The narrow card's center should be at the bounding width's midpoint.
     let boundingCenterX = result.boundingSize.width / 2
     #expect(abs(narrow.position.x - boundingCenterX) < 1)
-    // Wide card is also centered (it IS the widest row).
     #expect(abs(wide.position.x - boundingCenterX) < 1)
   }
 

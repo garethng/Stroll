@@ -53,17 +53,12 @@ struct CanvasCardPacker {
   /// 2^(N-1) configurations — 2^19 ≈ 500K is still sub-millisecond.
   private static let exhaustiveLimit = 20
 
-  /// How much aspect ratio mismatch penalizes the score relative to area.
-  /// A value of 0.25 means a ratio diff of 1.0 adds 25% to the area penalty.
-  /// This keeps layouts compact while avoiding extremely elongated shapes.
-  private static let ratioWeight: CGFloat = 0.25
-
-  /// Pack cards into rows that minimize the bounding area while gently
-  /// preferring aspect ratios close to `targetRatio`.
+  /// Pack cards into rows that maximize the fitToView scale.
   ///
-  /// For up to 20 cards, every possible row-break configuration is evaluated.
-  /// Scoring: `area × (1 + ratioWeight × |ratio − targetRatio|)`.
-  /// For larger counts, a greedy first-fit row packing with binary search is used.
+  /// `targetRatio` is the viewport's width/height. The algorithm picks the
+  /// row-break configuration whose bounding box, when scaled to fit the
+  /// viewport, produces the largest scale factor — i.e., cards appear as
+  /// large as possible on screen.
   func pack(cards: [CardInfo], targetRatio: CGFloat) -> PackResult {
     guard !cards.isEmpty, targetRatio > 0 else {
       return PackResult(layouts: [:], boundingSize: .zero)
@@ -77,21 +72,23 @@ struct CanvasCardPacker {
 
   // MARK: - Exhaustive search
 
-  /// Try every possible row-break configuration and pick the most compact layout.
+  /// Try every possible row-break configuration and pick the one that
+  /// maximizes `min(targetRatio / boundingW, 1 / boundingH)`.
   private func exhaustivePack(cards: [CardInfo], targetRatio: CGFloat) -> PackResult {
     let n = cards.count
     let maskCount = 1 << (n - 1)
     var bestMask = 0
-    var bestScore = CGFloat.infinity
+    var bestScale: CGFloat = -1
+    var bestArea = CGFloat.infinity
 
     for mask in 0..<maskCount {
       let (w, h) = boundingSize(cards: cards, breakMask: mask)
-      let ratio = w / h
+      let scale = min(targetRatio / w, 1.0 / h)
       let area = w * h
-      let score = area * (1 + Self.ratioWeight * abs(ratio - targetRatio))
-      if score < bestScore {
-        bestScore = score
+      if scale > bestScale || (scale == bestScale && area < bestArea) {
+        bestScale = scale
         bestMask = mask
+        bestArea = area
       }
     }
 
@@ -174,21 +171,23 @@ struct CanvasCardPacker {
   // MARK: - Greedy fallback (N > 20)
 
   /// Binary search over row widths with greedy first-fit row packing.
+  /// Maximizes fitToView scale just like the exhaustive path.
   private func greedyPack(cards: [CardInfo], targetRatio: CGFloat) -> PackResult {
     let maxCardWidth = cards.map(\.size.width).max()!
     var lo = maxCardWidth + 2 * spacing
     var hi = cards.reduce(0.0) { $0 + $1.size.width } + CGFloat(cards.count + 1) * spacing
     hi = max(lo, hi)
     var bestResult: PackResult?
-    var bestDiff = CGFloat.infinity
+    var bestScale: CGFloat = -1
 
     // Try the endpoints explicitly to avoid binary search boundary issues.
     for width in [lo, hi] {
       let result = greedyRowPack(cards: cards, rowWidth: width)
-      let ratio = result.boundingSize.width / result.boundingSize.height
-      let diff = abs(ratio - targetRatio)
-      if diff < bestDiff {
-        bestDiff = diff
+      let bW = result.boundingSize.width
+      let bH = result.boundingSize.height
+      let scale = min(targetRatio / bW, 1.0 / bH)
+      if scale > bestScale {
+        bestScale = scale
         bestResult = result
       }
     }
@@ -196,10 +195,12 @@ struct CanvasCardPacker {
     for _ in 0..<30 {
       let mid = (lo + hi) / 2
       let result = greedyRowPack(cards: cards, rowWidth: mid)
-      let ratio = result.boundingSize.width / result.boundingSize.height
-      let diff = abs(ratio - targetRatio)
-      if diff < bestDiff {
-        bestDiff = diff
+      let bW = result.boundingSize.width
+      let bH = result.boundingSize.height
+      let ratio = bW / bH
+      let scale = min(targetRatio / bW, 1.0 / bH)
+      if scale > bestScale {
+        bestScale = scale
         bestResult = result
       }
       if ratio > targetRatio {
