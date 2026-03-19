@@ -30,7 +30,12 @@ struct CanvasView: View {
         // Background layer: handles canvas pan and tap-to-unfocus.
         Color.clear
           .onAppear { ensureLayouts(for: allCardKeys) }
-          .onChange(of: allCardKeys) { _, newKeys in ensureLayouts(for: newKeys) }
+          .onChange(of: allCardKeys) { _, newKeys in
+            if newKeys.isEmpty {
+              CanvasLayoutStore.hasAutoArrangedInSession = false
+            }
+            ensureLayouts(for: newKeys)
+          }
           .contentShape(.rect)
           .accessibilityAddTraits(.isButton)
           .onTapGesture { unfocusAll() }
@@ -95,6 +100,10 @@ struct CanvasView: View {
         viewportSize = newSize
         if !hasPerformedInitialFit {
           hasPerformedInitialFit = true
+          if !CanvasLayoutStore.hasAutoArrangedInSession {
+            CanvasLayoutStore.hasAutoArrangedInSession = true
+            arrangeCards()
+          }
           fitToView(canvasSize: newSize)
         }
       }
@@ -256,48 +265,24 @@ struct CanvasView: View {
     layoutStore.cardLayouts = layouts
   }
 
-  /// Arrange cards in a waterfall (masonry) layout that preserves each card's
-  /// current size. Tries every possible column count, picks the one whose
-  /// bounding rectangle best matches the viewport aspect ratio.
+  /// Arrange cards using MaxRects-BSSF bin packing. Preserves each card's
+  /// current size and finds a compact layout whose aspect ratio matches
+  /// the viewport.
   private func arrangeCards() {
     let keys = collectCardKeys(from: terminalManager.activeWorktreeStates)
     guard !keys.isEmpty, viewportSize.width > 0, viewportSize.height > 0 else { return }
 
-    let cards: [CanvasWaterfallPacker.CardInfo] = keys.map { key in
+    let cards: [CanvasCardPacker.CardInfo] = keys.map { key in
       let size = layoutStore.cardLayouts[key]?.size ?? CanvasCardLayout.defaultSize
-      return CanvasWaterfallPacker.CardInfo(key: key, size: size)
+      return CanvasCardPacker.CardInfo(key: key, size: size)
     }
 
-    let packer = waterfallPacker
+    let packer = CanvasCardPacker(spacing: cardSpacing, titleBarHeight: titleBarHeight)
     let targetRatio = viewportSize.width / viewportSize.height
-    let columnWidth = cards.map(\.size.width).max() ?? CanvasCardLayout.defaultSize.width
+    let result = packer.pack(cards: cards, targetRatio: targetRatio)
 
-    var bestResult: [String: CanvasCardLayout]?
-    var bestRatioDiff = CGFloat.infinity
-
-    for cols in 1...keys.count {
-      let result = packer.pack(cards: cards, columns: cols, columnWidth: columnWidth)
-
-      let totalWidth = CGFloat(cols) * (columnWidth + cardSpacing) + cardSpacing
-      let ratio = totalWidth / result.totalHeight
-      let diff = abs(ratio - targetRatio)
-
-      if diff < bestRatioDiff {
-        bestRatioDiff = diff
-        bestResult = result.layouts
-      }
-
-      // Once we've overshot the target ratio, further columns only make it worse.
-      if ratio > targetRatio { break }
-    }
-
-    if let bestResult {
-      layoutStore.cardLayouts = bestResult
-    }
-  }
-
-  private var waterfallPacker: CanvasWaterfallPacker {
-    CanvasWaterfallPacker(spacing: cardSpacing, titleBarHeight: titleBarHeight)
+    guard !result.layouts.isEmpty else { return }
+    layoutStore.cardLayouts = result.layouts
   }
 
   /// Adjust scale and offset so all cards fit within the viewport.
