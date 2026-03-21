@@ -719,7 +719,7 @@ final class WorktreeTerminalState {
     case GHOSTTY_PROMPT_TITLE_SURFACE, GHOSTTY_PROMPT_TITLE_TAB:
       // Prowl is a single-window app so there is no per-surface window title to set.
       // Both surface and tab title prompts are treated as tab title changes for now.
-      // TODO: Consider removing GHOSTTY_PROMPT_TITLE_SURFACE support entirely.
+      // Consider removing GHOSTTY_PROMPT_TITLE_SURFACE support entirely.
       promptTabTitle(for: tabId, in: window)
     default:
       break
