@@ -23,6 +23,7 @@ final class GhosttyRuntime {
   private var surfaceRefs: [SurfaceReference] = []
   private var lastColorScheme: ghostty_color_scheme_e?
   var onConfigChange: (() -> Void)?
+  var onQuit: (() -> Void)?
 
   init() {
     guard let config = Self.loadConfig() else {
@@ -374,7 +375,9 @@ final class GhosttyRuntime {
       return true
     }
     if action.tag == GHOSTTY_ACTION_QUIT {
-      NSApplication.shared.terminate(nil)
+      if let runtime = runtime(fromApp: app) {
+        runtime.onQuit?()
+      }
       return true
     }
     if action.tag == GHOSTTY_ACTION_CLOSE_WINDOW {

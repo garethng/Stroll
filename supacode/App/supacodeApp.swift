@@ -153,6 +153,9 @@ struct SupacodeApp: App {
       )
     }
     _store = State(initialValue: appStore)
+    runtime.onQuit = { [weak appStore] in
+      appStore?.send(.requestQuit)
+    }
     appDelegate.appStore = appStore
     SettingsWindowManager.shared.configure(
       store: appStore,
