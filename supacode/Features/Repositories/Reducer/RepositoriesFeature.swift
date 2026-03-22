@@ -608,7 +608,9 @@ struct RepositoriesFeature {
         state.preCanvasWorktreeID = state.selectedWorktreeID
         state.selection = .canvas
         state.sidebarSelectedWorktreeIDs = []
-        return .none
+        return .run { _ in
+          await terminalClient.send(.setCanvasMode(true))
+        }
 
       case .toggleCanvas:
         if state.isShowingCanvas {

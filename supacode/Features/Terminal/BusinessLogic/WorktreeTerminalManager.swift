@@ -107,6 +107,10 @@ final class WorktreeTerminalManager {
       setNotificationsEnabled(enabled)
     case .setCommandFinishedNotification(let enabled, let threshold):
       setCommandFinishedNotification(enabled: enabled, threshold: threshold)
+    case .setCanvasMode(let enabled):
+      if enabled {
+        selectedWorktreeID = nil
+      }
     case .setSelectedWorktreeID(let id):
       guard id != selectedWorktreeID else { return }
       if let previousID = selectedWorktreeID, let previousState = states[previousID] {
