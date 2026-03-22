@@ -12,14 +12,8 @@ class SparkleUpdateDelegate: NSObject, SPUUpdaterDelegate {
   var updateChannel: UpdateChannel = .stable
 
   nonisolated func allowedChannels(for updater: SPUUpdater) -> Set<String> {
-    MainActor.assumeIsolated {
-      switch updateChannel {
-      case .stable:
-        []
-      case .tip:
-        ["tip"]
-      }
-    }
+    // Tip channel is no longer published separately; treat it the same as stable.
+    []
   }
 }
 
@@ -44,7 +38,7 @@ extension UpdaterClient: DependencyKey {
       setUpdateChannel: { channel in
         _ = controller
         delegate.updateChannel = channel
-        updater.updateCheckInterval = channel == .tip ? 900 : 3600
+        updater.updateCheckInterval = 3600
         if updater.automaticallyChecksForUpdates {
           updater.checkForUpdatesInBackground()
         }
