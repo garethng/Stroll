@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prowl public release script.
+# Public release script.
 # Usage: ./doc-onevcat/scripts/release.sh [VERSION]
 #
 # Environment variables:
@@ -7,7 +7,11 @@
 #   APPLE_TEAM_ID                   Apple Team ID (inferred from identity if unset)
 #   APPLE_NOTARY_KEYCHAIN_PROFILE   Keychain profile for notarytool (default: supacode-notary)
 #   SPARKLE_PRIVATE_KEY_FILE        Path to EdDSA private key file (default: ~/.prowl-sparkle-private-key)
-#   PROWL_SITE_DIR                  Path to Prowl-Site repo (default: ../Prowl-Site)
+#   SPARKLE_FEED_URL                Stable Sparkle feed URL (defaults to SUFeedURL in Info.plist)
+#   APPCAST_PUBLISH_MODE            github-branch | site | none (default: github-branch)
+#   APPCAST_GIT_BRANCH              Branch to publish appcast.xml to (default: sparkle-appcast)
+#   APPCAST_GIT_PATH                Path inside APPCAST_GIT_BRANCH for appcast.xml (default: appcast.xml)
+#   PROWL_SITE_DIR                  Path to site repo when APPCAST_PUBLISH_MODE=site
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -41,6 +45,10 @@ team_id_from_identity() {
 signing_identity_sha() {
   security find-identity -v -p codesigning 2>/dev/null \
     | grep "$1" | head -1 | awk '{print $2}'
+}
+
+feed_url_from_plist() {
+  /usr/libexec/PlistBuddy -c "Print :SUFeedURL" "$PROJECT_DIR/supacode/Info.plist" 2>/dev/null || true
 }
 
 log() { echo "[release] $*"; }
@@ -77,11 +85,18 @@ IDENTITY_SHA="$(signing_identity_sha "$SIGNING_IDENTITY")"
 SPARKLE_KEY_FILE="${SPARKLE_PRIVATE_KEY_FILE:-$HOME/.prowl-sparkle-private-key}"
 [[ -f "$SPARKLE_KEY_FILE" ]] || die "Sparkle private key not found: $SPARKLE_KEY_FILE"
 
+SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-$(feed_url_from_plist)}"
+APPCAST_PUBLISH_MODE="${APPCAST_PUBLISH_MODE:-github-branch}"
+APPCAST_GIT_BRANCH="${APPCAST_GIT_BRANCH:-sparkle-appcast}"
+APPCAST_GIT_PATH="${APPCAST_GIT_PATH:-appcast.xml}"
 PROWL_SITE="${PROWL_SITE_DIR:-$PROJECT_DIR/../Prowl-Site}"
 
 log "repository: $REPO"
 log "signing identity: $SIGNING_IDENTITY"
 log "team ID: $TEAM_ID"
+if [[ -n "$SPARKLE_FEED_URL" ]]; then
+  log "sparkle feed: $SPARKLE_FEED_URL"
+fi
 
 # ── Version ──────────────────────────────────────────────────────────────────
 
@@ -160,7 +175,7 @@ generate_llm_notes() {
 
   local prompt
   prompt="$(cat <<'PROMPT'
-You are writing release notes for **Prowl**, a macOS app that runs multiple
+You are writing release notes for **Stroll**, a macOS app that runs multiple
 coding agents in parallel, each in its own terminal tab.
 
 Given the raw context below (commits, PR descriptions, diff stats), produce a
@@ -292,6 +307,7 @@ make export-archive
 APP_PATH="$(find build/export -name "*.app" -maxdepth 3 -print -quit)"
 [[ -d "$APP_PATH" ]] || die "exported app not found in build/export"
 APP_NAME="$(basename "$APP_PATH")"
+APP_BASENAME="${APP_NAME%.app}"
 log "exported app: $APP_PATH"
 
 # ── Re-sign Sparkle & Sentry frameworks ─────────────────────────────────────
@@ -324,10 +340,10 @@ log "signature verified"
 # ── DMG ──────────────────────────────────────────────────────────────────────
 
 log "building DMG..."
-DMG_PATH="build/Prowl.dmg"
+DMG_PATH="build/${APP_BASENAME}.dmg"
 mise exec -- create-dmg "$APP_PATH" build/ \
   --overwrite \
-  --dmg-title="Prowl" \
+  --dmg-title="$APP_BASENAME" \
   --identity="$IDENTITY_SHA"
 
 DMG_OUTPUT="$(find build -name "*.dmg" -maxdepth 1 -newer build/ExportOptions.plist | head -1)"
@@ -357,7 +373,7 @@ xcrun stapler staple "$APP_PATH"
 
 # ── Package zip for Sparkle ──────────────────────────────────────────────────
 
-ZIP_PATH="build/Prowl.app.zip"
+ZIP_PATH="build/${APP_NAME}.zip"
 log "packaging $ZIP_PATH for Sparkle..."
 ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_PATH"
 
@@ -370,7 +386,9 @@ cp "$ZIP_PATH" "$STAGING/"
 cp "$NOTES_FILE" "$STAGING/$ARCHIVE_BASE.md"
 
 # Fetch existing appcast for history
-curl -fsSL "https://prowl.onev.cat/appcast.xml" -o "$STAGING/appcast.xml" 2>/dev/null || true
+if [[ -n "$SPARKLE_FEED_URL" ]]; then
+  curl -fsSL "$SPARKLE_FEED_URL" -o "$STAGING/appcast.xml" 2>/dev/null || true
+fi
 
 "$PROJECT_DIR/bins/generate_appcast" \
   --ed-key-file "$SPARKLE_KEY_FILE" \
@@ -398,32 +416,50 @@ UPLOAD_FILES+=("${DELTA_FILES[@]}")
 
 gh release create "$TAG" "${UPLOAD_FILES[@]}" \
   --repo "$REPO" \
-  --title "Prowl $VERSION" \
+  --title "$APP_BASENAME $VERSION" \
   --notes-file "$NOTES_FILE"
 
 RELEASE_URL="https://github.com/$REPO/releases/tag/$TAG"
 log "release created: $RELEASE_URL"
 
-# ── Update Prowl-Site ────────────────────────────────────────────────────────
+# ── Publish appcast ───────────────────────────────────────────────────────────
 
-if [[ -d "$PROWL_SITE" ]]; then
-  log "updating Prowl-Site appcast..."
-  mkdir -p "$PROWL_SITE/public"
-  cp build/appcast.xml "$PROWL_SITE/public/appcast.xml"
-  pushd "$PROWL_SITE" >/dev/null
-  if [[ -n "$(git status --porcelain)" ]]; then
-    git add public/appcast.xml
-    git commit -m "Update appcast for Prowl $VERSION"
-    git push
-    log "Prowl-Site pushed (Netlify deploy will follow)"
-  else
-    log "Prowl-Site appcast unchanged"
-  fi
-  popd >/dev/null
-else
-  log "Prowl-Site not found at $PROWL_SITE — skipping appcast deploy"
-  log "copy build/appcast.xml manually or set PROWL_SITE_DIR"
-fi
+case "$APPCAST_PUBLISH_MODE" in
+  github-branch)
+    log "publishing appcast to git branch $APPCAST_GIT_BRANCH:$APPCAST_GIT_PATH..."
+    "$PROJECT_DIR/doc-onevcat/scripts/publish-appcast-to-branch.sh" \
+      "build/appcast.xml" \
+      "$APPCAST_GIT_BRANCH" \
+      "$APPCAST_GIT_PATH" \
+      "Update Sparkle appcast for $APP_BASENAME $VERSION"
+    ;;
+  site)
+    if [[ -d "$PROWL_SITE" ]]; then
+      log "updating site appcast..."
+      mkdir -p "$PROWL_SITE/public"
+      cp build/appcast.xml "$PROWL_SITE/public/appcast.xml"
+      pushd "$PROWL_SITE" >/dev/null
+      if [[ -n "$(git status --porcelain)" ]]; then
+        git add public/appcast.xml
+        git commit -m "Update appcast for $APP_BASENAME $VERSION"
+        git push
+        log "site appcast pushed"
+      else
+        log "site appcast unchanged"
+      fi
+      popd >/dev/null
+    else
+      log "site repo not found at $PROWL_SITE — skipping appcast deploy"
+      log "copy build/appcast.xml manually or set PROWL_SITE_DIR"
+    fi
+    ;;
+  none)
+    log "skipping appcast publish"
+    ;;
+  *)
+    die "unknown APPCAST_PUBLISH_MODE: $APPCAST_PUBLISH_MODE"
+    ;;
+esac
 
 echo
 log "done! Release: $RELEASE_URL"
