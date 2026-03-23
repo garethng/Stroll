@@ -72,13 +72,11 @@ If conflicts happen, resolve once, commit, and `rerere` will likely auto-apply n
 
 Or use the `/release` command.
 
-For CI-based fork publishing, use the GitHub Actions workflow `fork-sync-release`, which:
-1. fetches `upstream/main`
-2. merges it into fork `main`
-3. pushes the sync commit back to the fork
-4. builds and notarizes a release on GitHub Actions
-5. creates a GitHub Release
-6. publishes `appcast.xml` to the `sparkle-appcast` branch
+For CI-based fork publishing, use two GitHub Actions workflows:
+1. `fork-sync`: fetches `upstream/main`, merges it into fork `main`, and pushes the sync commit back to the fork
+2. `fork-release`: builds and notarizes a release on GitHub Actions, creates a GitHub Release, and publishes `appcast.xml` to the `sparkle-appcast` branch
+
+`fork-release` can be run manually, or triggered automatically after `fork-sync` completes successfully.
 
 The script handles:
 1. Version bump (date-based) + signed git tag
