@@ -400,7 +400,7 @@ struct AppFeature {
             }
           }
           state.alert = AlertState {
-            TextState("Quit Prowl?")
+            TextState("Quit Stroll?")
           } actions: {
             ButtonState(action: .confirmQuit) {
               TextState("Quit")

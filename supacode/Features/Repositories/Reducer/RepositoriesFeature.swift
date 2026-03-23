@@ -2263,7 +2263,7 @@ struct RepositoriesFeature {
           return .send(
             .presentAlert(
               title: "Pull request not available",
-              message: "Prowl could not find a pull request for this worktree."
+              message: "Stroll could not find a pull request for this worktree."
             )
           )
         }
@@ -2283,7 +2283,7 @@ struct RepositoriesFeature {
             return .send(
               .presentAlert(
                 title: "Invalid pull request URL",
-                message: "Prowl could not open the pull request URL."
+                message: "Stroll could not open the pull request URL."
               )
             )
           }
@@ -2296,7 +2296,7 @@ struct RepositoriesFeature {
             return .send(
               .presentAlert(
                 title: "Failing check not found",
-                message: "Prowl could not find a failing check URL."
+                message: "Stroll could not find a failing check URL."
               )
             )
           }
@@ -2313,7 +2313,7 @@ struct RepositoriesFeature {
             return .send(
               .presentAlert(
                 title: "Failing check not found",
-                message: "Prowl could not find a failing check with details."
+                message: "Stroll could not find a failing check with details."
               )
             )
           }
@@ -2429,7 +2429,7 @@ struct RepositoriesFeature {
               await send(
                 .presentAlert(
                   title: "Branch name unavailable",
-                  message: "Prowl could not determine the pull request branch."
+                  message: "Stroll could not determine the pull request branch."
                 )
               )
               return
@@ -2441,7 +2441,7 @@ struct RepositoriesFeature {
                 await send(
                   .presentAlert(
                     title: "No workflow runs found",
-                    message: "Prowl could not find any workflow runs for this branch."
+                    message: "Stroll could not find any workflow runs for this branch."
                   )
                 )
                 return
@@ -2451,7 +2451,7 @@ struct RepositoriesFeature {
                 await send(
                   .presentAlert(
                     title: "No failing workflow run",
-                    message: "Prowl could not find a failing workflow run to copy logs from."
+                    message: "Stroll could not find a failing workflow run to copy logs from."
                   )
                 )
                 return
@@ -2506,7 +2506,7 @@ struct RepositoriesFeature {
               await send(
                 .presentAlert(
                   title: "Branch name unavailable",
-                  message: "Prowl could not determine the pull request branch."
+                  message: "Stroll could not determine the pull request branch."
                 )
               )
               return
@@ -2518,7 +2518,7 @@ struct RepositoriesFeature {
                 await send(
                   .presentAlert(
                     title: "No workflow runs found",
-                    message: "Prowl could not find any workflow runs for this branch."
+                    message: "Stroll could not find any workflow runs for this branch."
                   )
                 )
                 return
@@ -2528,7 +2528,7 @@ struct RepositoriesFeature {
                 await send(
                   .presentAlert(
                     title: "No failing workflow run",
-                    message: "Prowl could not find a failing workflow run to re-run."
+                    message: "Stroll could not find a failing workflow run to re-run."
                   )
                 )
                 return

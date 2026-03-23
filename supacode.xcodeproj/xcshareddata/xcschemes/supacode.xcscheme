@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "D69CE0492F1F378200584C57"
-               BuildableName = "Prowl.app"
+               BuildableName = "Stroll.app"
                BlueprintName = "supacode"
                ReferencedContainer = "container:supacode.xcodeproj">
             </BuildableReference>
@@ -58,7 +58,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "D69CE0492F1F378200584C57"
-            BuildableName = "Prowl.app"
+            BuildableName = "Stroll.app"
             BlueprintName = "supacode"
             ReferencedContainer = "container:supacode.xcodeproj">
          </BuildableReference>
@@ -75,7 +75,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "D69CE0492F1F378200584C57"
-            BuildableName = "Prowl.app"
+            BuildableName = "Stroll.app"
             BlueprintName = "supacode"
             ReferencedContainer = "container:supacode.xcodeproj">
          </BuildableReference>

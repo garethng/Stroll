@@ -36,7 +36,7 @@
 		D64162AD2F23CAF100260CA3 /* ghostty */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ghostty; path = Resources/ghostty; sourceTree = "<group>"; };
 		D64162AE2F23CAF100260CA3 /* terminfo */ = {isa = PBXFileReference; lastKnownFileType = folder; name = terminfo; path = Resources/terminfo; sourceTree = "<group>"; };
 		D64162AF2F23CAF100260CA3 /* git-wt */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "git-wt"; path = "Resources/git-wt"; sourceTree = "<group>"; };
-		D69CE04A2F1F378200584C57 /* Prowl.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Prowl.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D69CE04A2F1F378200584C57 /* Stroll.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Stroll.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D6A1CB2F2F1F4A48004FDABD /* GhosttyKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = GhosttyKit.xcframework; sourceTree = "<group>"; };
 		D6A1CB342F1F4AC2004FDABD /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
 		D6F821012F1FCBC1004B4174 /* supacodeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = supacodeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -112,7 +112,7 @@
 		D69CE04B2F1F378200584C57 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				D69CE04A2F1F378200584C57 /* Prowl.app */,
+				D69CE04A2F1F378200584C57 /* Stroll.app */,
 				D6F821012F1FCBC1004B4174 /* supacodeTests.xctest */,
 			);
 			name = Products;
@@ -157,7 +157,7 @@
 				D1BB05882F5ACB5900553512 /* YiTong */,
 			);
 			productName = supacode;
-			productReference = D69CE04A2F1F378200584C57 /* Prowl.app */;
+			productReference = D69CE04A2F1F378200584C57 /* Stroll.app */;
 			productType = "com.apple.product-type.application";
 		};
 		D6F821002F1FCBC1004B4174 /* supacodeTests */ = {
@@ -468,9 +468,9 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-incomplete-umbrella";
-				PRODUCT_BUNDLE_IDENTIFIER = com.onevcat.prowl;
+				PRODUCT_BUNDLE_IDENTIFIER = com.echopie.stroll;
 				PRODUCT_MODULE_NAME = supacode;
-				PRODUCT_NAME = Prowl;
+				PRODUCT_NAME = Stroll;
 				REGISTER_APP_GROUPS = YES;
 				RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES = NO;
 				RUNTIME_EXCEPTION_ALLOW_JIT = NO;
@@ -525,9 +525,9 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-incomplete-umbrella";
-				PRODUCT_BUNDLE_IDENTIFIER = com.onevcat.prowl;
+				PRODUCT_BUNDLE_IDENTIFIER = com.echopie.stroll;
 				PRODUCT_MODULE_NAME = supacode;
-				PRODUCT_NAME = Prowl;
+				PRODUCT_NAME = Stroll;
 				REGISTER_APP_GROUPS = YES;
 				RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES = NO;
 				RUNTIME_EXCEPTION_ALLOW_JIT = NO;
@@ -555,14 +555,14 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.1;
 				MARKETING_VERSION = 2026.3.23;
-				PRODUCT_BUNDLE_IDENTIFIER = com.onevcat.prowlTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.echopie.strollTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Prowl.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Prowl";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Stroll.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Stroll";
 			};
 			name = Debug;
 		};
@@ -577,14 +577,14 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.1;
 				MARKETING_VERSION = 2026.3.23;
-				PRODUCT_BUNDLE_IDENTIFIER = com.onevcat.prowlTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.echopie.strollTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Prowl.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Prowl";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Stroll.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Stroll";
 			};
 			name = Release;
 		};
