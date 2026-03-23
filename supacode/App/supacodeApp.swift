@@ -17,7 +17,7 @@ import SwiftUI
 private enum GhosttyCLI {
   static let argv: [UnsafeMutablePointer<CChar>?] = {
     var args: [UnsafeMutablePointer<CChar>?] = []
-    let executable = CommandLine.arguments.first ?? "supacode"
+    let executable = CommandLine.arguments.first ?? "Stroll"
     args.append(strdup(executable))
     for keybindArgument in AppShortcuts.ghosttyCLIKeybindArguments {
       args.append(strdup(keybindArgument))
@@ -169,7 +169,7 @@ struct SupacodeApp: App {
   }
 
   var body: some Scene {
-    Window("Prowl", id: "main") {
+    Window("Stroll", id: "main") {
       GhosttyColorSchemeSyncView(ghostty: ghostty) {
         ContentView(store: store, terminalManager: terminalManager)
           .environment(ghosttyShortcuts)
@@ -212,11 +212,11 @@ struct SupacodeApp: App {
         )
       }
       CommandGroup(replacing: .appTermination) {
-        Button("Quit Prowl") {
+        Button("Quit Stroll") {
           store.send(.requestQuit)
         }
         .keyboardShortcut("q")
-        .help("Quit Prowl (⌘Q)")
+        .help("Quit Stroll (⌘Q)")
       }
     }
   }

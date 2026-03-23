@@ -10,11 +10,11 @@ struct AdvancedSettingsView: View {
         Section("Advanced") {
           VStack(alignment: .leading) {
             Toggle(
-              "Share analytics with Prowl",
+              "Share analytics with Stroll",
               isOn: $store.analyticsEnabled
             )
-            .help("Share anonymous usage data with Prowl (requires restart)")
-            Text("Anonymous usage data helps improve Prowl.")
+            .help("Share anonymous usage data with Stroll (requires restart)")
+            Text("Anonymous usage data helps improve Stroll.")
               .foregroundStyle(.secondary)
               .font(.callout)
             Text("Requires app restart.")
@@ -24,10 +24,10 @@ struct AdvancedSettingsView: View {
           .frame(maxWidth: .infinity, alignment: .leading)
           VStack(alignment: .leading) {
             Toggle(
-              "Share crash reports with Prowl",
+              "Share crash reports with Stroll",
               isOn: $store.crashReportsEnabled
             )
-            .help("Share anonymous crash reports with Prowl (requires restart)")
+            .help("Share anonymous crash reports with Stroll (requires restart)")
             Text("Anonymous crash reports help improve stability.")
               .foregroundStyle(.secondary)
               .font(.callout)

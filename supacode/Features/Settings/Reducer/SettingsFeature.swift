@@ -179,10 +179,10 @@ struct SettingsFeature {
         let message: String
         if let errorMessage, !errorMessage.isEmpty {
           message =
-            "Prowl cannot send system notifications.\n\n"
+            "Stroll cannot send system notifications.\n\n"
             + "Error: \(errorMessage)"
         } else {
-          message = "Prowl cannot send system notifications while permission is denied."
+          message = "Stroll cannot send system notifications while permission is denied."
         }
         state.alert = AlertState {
           TextState("Enable Notifications in System Settings")
