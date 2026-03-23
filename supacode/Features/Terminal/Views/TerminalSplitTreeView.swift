@@ -96,6 +96,9 @@ struct TerminalSplitTreeView: View {
     var pinnedSize: CGSize?
     let action: (Operation) -> Void
 
+    @Environment(GhosttyShortcutManager.self)
+    private var ghosttyShortcuts
+
     @State private var dropState: DropState = .idle
 
     var body: some View {
@@ -106,8 +109,25 @@ struct TerminalSplitTreeView: View {
             GhosttySurfaceProgressOverlay(state: surfaceView.bridge.state)
           }
           .overlay(alignment: .topTrailing) {
-            if surfaceView.bridge.state.searchNeedle != nil {
-              GhosttySurfaceSearchOverlay(surfaceView: surfaceView)
+            VStack(alignment: .trailing, spacing: 8) {
+              if isSplit {
+                Button("Close Split", systemImage: "xmark") {
+                  surfaceView.performBindingAction("close_surface")
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .font(.caption.bold())
+                .frame(width: 18, height: 18)
+                .background(.bar.opacity(0.85), in: .circle)
+                .contentShape(.rect)
+                .help(helpText("Close Split", shortcut: ghosttyShortcuts.display(for: "close_surface")))
+                .padding(.top, 8)
+                .padding(.trailing, 8)
+              }
+              if surfaceView.bridge.state.searchNeedle != nil {
+                GhosttySurfaceSearchOverlay(surfaceView: surfaceView)
+              }
             }
           }
           .overlay(alignment: .top) {
@@ -134,6 +154,11 @@ struct TerminalSplitTreeView: View {
             }
           }
       }
+    }
+
+    private func helpText(_ title: String, shortcut: String?) -> String {
+      guard let shortcut else { return title }
+      return "\(title) (\(shortcut))"
     }
 
   }
