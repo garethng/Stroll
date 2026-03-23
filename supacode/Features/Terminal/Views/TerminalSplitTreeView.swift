@@ -99,107 +99,126 @@ struct TerminalSplitTreeView: View {
     @Environment(GhosttyShortcutManager.self)
     private var ghosttyShortcuts
 
+    private let splitTitleBarHeight: CGFloat = 24
+
     @State private var dropState: DropState = .idle
 
     var body: some View {
       GeometryReader { geometry in
-        GhosttyTerminalView(surfaceView: surfaceView, pinnedSize: pinnedSize)
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
-          .overlay(alignment: .top) {
-            GhosttySurfaceProgressOverlay(state: surfaceView.bridge.state)
+        VStack(spacing: 0) {
+          if isSplit {
+            SplitTitleBar(
+              title: splitTitle,
+              surfaceView: surfaceView,
+              closeShortcut: ghosttyShortcuts.display(for: "close_surface")
+            )
           }
-          .overlay(alignment: .topTrailing) {
-            VStack(alignment: .trailing, spacing: 8) {
-              if isSplit {
-                Button("Close Split", systemImage: "xmark") {
-                  surfaceView.performBindingAction("close_surface")
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .font(.caption.bold())
-                .frame(width: 18, height: 18)
-                .background(.bar.opacity(0.85), in: .circle)
-                .contentShape(.rect)
-                .help(helpText("Close Split", shortcut: ghosttyShortcuts.display(for: "close_surface")))
-                .padding(.top, 8)
-                .padding(.trailing, 8)
-              }
+          GhosttyTerminalView(surfaceView: surfaceView, pinnedSize: terminalPinnedSize)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .top) {
+              GhosttySurfaceProgressOverlay(state: surfaceView.bridge.state)
+            }
+            .overlay(alignment: .topTrailing) {
               if surfaceView.bridge.state.searchNeedle != nil {
                 GhosttySurfaceSearchOverlay(surfaceView: surfaceView)
               }
             }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+          Color.clear
+            .contentShape(.rect)
+            .onDrop(
+              of: [TerminalSplitTreeView.dragType],
+              delegate: SplitDropDelegate(
+                dropState: $dropState,
+                viewSize: geometry.size,
+                destinationId: surfaceView.id,
+                action: action
+              ))
+        }
+        .overlay {
+          if case .dropping(let zone) = dropState {
+            DropOverlayView(zone: zone, size: geometry.size)
+              .allowsHitTesting(false)
           }
-          .overlay(alignment: .top) {
-            if isSplit {
-              DragHandle(surfaceView: surfaceView)
-            }
-          }
-          .background {
-            Color.clear
-              .contentShape(.rect)
-              .onDrop(
-                of: [TerminalSplitTreeView.dragType],
-                delegate: SplitDropDelegate(
-                  dropState: $dropState,
-                  viewSize: geometry.size,
-                  destinationId: surfaceView.id,
-                  action: action
-                ))
-          }
-          .overlay {
-            if case .dropping(let zone) = dropState {
-              DropOverlayView(zone: zone, size: geometry.size)
-                .allowsHitTesting(false)
-            }
-          }
+        }
+      }
+    }
+
+    private var splitTitle: String {
+      let title = surfaceView.bridge.state.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      if !title.isEmpty {
+        return title
+      }
+      let pwd = surfaceView.bridge.state.pwd?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      if !pwd.isEmpty {
+        return pwd
+      }
+      return "Terminal pane"
+    }
+
+    private var terminalPinnedSize: CGSize? {
+      guard isSplit, let pinnedSize else { return pinnedSize }
+      return CGSize(
+        width: pinnedSize.width,
+        height: max(0, pinnedSize.height - splitTitleBarHeight)
+      )
+    }
+  }
+
+  struct SplitTitleBar: View {
+    let title: String
+    let surfaceView: GhosttySurfaceView
+    let closeShortcut: String?
+    @State private var isHovering = false
+
+    var body: some View {
+      HStack(spacing: 8) {
+        Text(title)
+          .font(.caption)
+          .monospaced()
+          .lineLimit(1)
+        Spacer(minLength: 0)
+        Button("Close Split", systemImage: "xmark") {
+          surfaceView.performBindingAction("close_surface")
+        }
+        .labelStyle(.iconOnly)
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .font(.caption.bold())
+        .frame(width: 18, height: 18)
+        .contentShape(.rect)
+        .help(helpText("Close Split", shortcut: closeShortcut))
+      }
+      .padding(.horizontal, 8)
+      .frame(maxWidth: .infinity)
+      .frame(height: 24)
+      .background(.bar)
+      .contentShape(.rect)
+      .onHover { hovering in
+        guard hovering != isHovering else { return }
+        isHovering = hovering
+        if hovering {
+          NSCursor.openHand.push()
+        } else {
+          NSCursor.pop()
+        }
+      }
+      .onDisappear {
+        if isHovering {
+          isHovering = false
+          NSCursor.pop()
+        }
+      }
+      .onDrag {
+        TerminalSplitTreeView.dragProvider(for: surfaceView)
       }
     }
 
     private func helpText(_ title: String, shortcut: String?) -> String {
       guard let shortcut else { return title }
       return "\(title) (\(shortcut))"
-    }
-
-  }
-
-  struct DragHandle: View {
-    let surfaceView: GhosttySurfaceView
-    private let handleHeight: CGFloat = 10
-    @State private var isHovering = false
-
-    var body: some View {
-      Rectangle()
-        .fill(Color.primary.opacity(isHovering ? 0.12 : 0))
-        .frame(maxWidth: .infinity)
-        .frame(height: handleHeight)
-        .overlay {
-          if isHovering {
-            Image(systemName: "ellipsis")
-              .font(.system(.callout, weight: .semibold))
-              .foregroundStyle(.primary.opacity(0.5))
-              .accessibilityHidden(true)
-          }
-        }
-        .contentShape(.rect)
-        .onHover { hovering in
-          guard hovering != isHovering else { return }
-          isHovering = hovering
-          if hovering {
-            NSCursor.openHand.push()
-          } else {
-            NSCursor.pop()
-          }
-        }
-        .onDisappear {
-          if isHovering {
-            isHovering = false
-            NSCursor.pop()
-          }
-        }
-        .onDrag {
-          TerminalSplitTreeView.dragProvider(for: surfaceView)
-        }
     }
   }
 
