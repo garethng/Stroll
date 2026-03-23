@@ -467,14 +467,11 @@ struct CanvasView: View {
 
   private func deactivateCanvas() {
     focusedTabID = nil
-    for state in terminalManager.activeWorktreeStates {
-      for tab in state.tabManager.tabs {
-        for surface in state.splitTree(for: tab.id).leaves() {
-          surface.setOcclusion(false)
-          surface.focusDidChange(false)
-        }
-      }
-    }
+    // Don't occlude surfaces here. In SwiftUI's if/else view swap,
+    // onAppear fires before onDisappear, so occluding here would undo
+    // WorktreeTerminalTabsView.onAppear's syncFocus() and cause blank
+    // surfaces. Cleanup of non-selected worktrees is handled by
+    // setSelectedWorktreeID in the async exit flow.
   }
 }
 
