@@ -1,0 +1,52 @@
+name: fork-sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+concurrency:
+  group: fork-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Ensure upstream remote
+        run: |
+          if git remote get-url upstream >/dev/null 2>&1; then
+            git remote set-url upstream https://github.com/supabitapp/supacode.git
+          else
+            git remote add upstream https://github.com/supabitapp/supacode.git
+          fi
+
+      - name: Sync fork from upstream
+        run: |
+          set -euo pipefail
+          git fetch origin --prune
+          git fetch upstream --prune
+          git checkout main
+          git merge --ff-only origin/main
+
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "Fork already contains upstream/main; nothing to sync."
+            exit 0
+          fi
+
+          git merge --no-ff --no-edit upstream/main
+          git push origin main
