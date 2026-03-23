@@ -10,11 +10,15 @@ struct CanvasCardView: View {
   let cardSize: CGSize
   let canvasScale: CGFloat
   let onTap: () -> Void
+  let onClose: () -> Void
   let onDragCommit: (CGSize) -> Void
   let onResize: (CardResizeEdge, CGSize) -> Void
   let onResizeEnd: () -> Void
   let onSplitOperation: (TerminalSplitTreeView.Operation) -> Void
   let onTitleBarTap: () -> Void
+
+  @Environment(GhosttyShortcutManager.self)
+  private var ghosttyShortcuts
 
   enum CardResizeEdge {
     case leading, trailing, top, bottom
@@ -74,6 +78,16 @@ struct CanvasCardView: View {
         .foregroundStyle(.secondary)
         .lineLimit(1)
       Spacer()
+      Button("Close Tab", systemImage: "xmark") {
+        onClose()
+      }
+      .labelStyle(.iconOnly)
+      .buttonStyle(.plain)
+      .foregroundStyle(.secondary)
+      .font(.caption.bold())
+      .frame(width: 18, height: 18)
+      .contentShape(.rect)
+      .help(helpText("Close Tab", shortcut: ghosttyShortcuts.display(for: "close_tab")))
     }
     .padding(.horizontal, 8)
     .frame(height: titleBarHeight)
@@ -99,6 +113,11 @@ struct CanvasCardView: View {
             ))
         }
     )
+  }
+
+  private func helpText(_ title: String, shortcut: String?) -> String {
+    guard let shortcut else { return title }
+    return "\(title) (\(shortcut))"
   }
 
   private var terminalContent: some View {

@@ -69,6 +69,9 @@ struct CanvasView: View {
                     focusCard(tab.id, surfaceView: activeSurface, states: activeStates)
                   }
                 },
+                onClose: {
+                  state.closeTab(tab.id)
+                },
                 onDragCommit: { translation in commitDrag(for: cardKey, translation: translation) },
                 onResize: { edge, translation in
                   activeResize[tab.id] = ActiveResize(
