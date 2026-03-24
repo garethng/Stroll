@@ -183,6 +183,7 @@ struct SupacodeApp: App {
       WorktreeCommands(store: store)
       SidebarCommands(store: store)
       TerminalCommands(ghosttyShortcuts: ghosttyShortcuts)
+      WindowCommands(ghosttyShortcuts: ghosttyShortcuts)
       CommandGroup(after: .textEditing) {
         Button("Command Palette") {
           store.send(.commandPalette(.togglePresented))
@@ -192,6 +193,15 @@ struct SupacodeApp: App {
       }
       UpdateCommands(store: store.scope(state: \.updates, action: \.updates))
       CommandGroup(replacing: .windowArrangement) {
+        Button("Supacode") {
+          if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == "main" }) {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+          }
+        }
+        .keyboardShortcut("0")
+        .help("Show main window (⌘0)")
+        Divider()
         Button("Minimize") {
           NSApp.keyWindow?.miniaturize(nil)
         }
