@@ -15,6 +15,10 @@ struct CanvasCardView: View {
   let onResize: (CardResizeEdge, CGSize) -> Void
   let onResizeEnd: () -> Void
   let onSplitOperation: (TerminalSplitTreeView.Operation) -> Void
+  let onTitleBarTap: () -> Void
+
+  @Environment(GhosttyShortcutManager.self)
+  private var ghosttyShortcuts
 
   @Environment(GhosttyShortcutManager.self)
   private var ghosttyShortcuts
@@ -97,6 +101,8 @@ struct CanvasCardView: View {
       }
     }
     .background(.bar)
+    .accessibilityAddTraits(.isButton)
+    .onTapGesture { onTitleBarTap() }
     .gesture(
       DragGesture(coordinateSpace: .global)
         .updating($dragTranslation) { value, state, _ in

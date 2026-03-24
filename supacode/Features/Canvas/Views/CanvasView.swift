@@ -3,6 +3,7 @@ import SwiftUI
 
 struct CanvasView: View {
   let terminalManager: WorktreeTerminalManager
+  var onExitToTab: () -> Void = {}
   @State private var layoutStore = CanvasLayoutStore()
 
   @State private var canvasOffset: CGSize = .zero
@@ -10,6 +11,7 @@ struct CanvasView: View {
   @State private var canvasScale: CGFloat = 1.0
   @State private var lastCanvasScale: CGFloat = 1.0
   @State private var focusedTabID: TerminalTabID?
+  @State private var lastTitleBarTapDate: Date = .distantPast
   @State private var activeResize: [TerminalTabID: ActiveResize] = [:]
   @State private var hasPerformedInitialFit = false
   @State private var viewportSize: CGSize = .zero
@@ -83,6 +85,19 @@ struct CanvasView: View {
                 onResizeEnd: { commitResize(for: tab.id, cardKey: cardKey, surfaces: tree.leaves()) },
                 onSplitOperation: { operation in
                   state.performSplitOperation(operation, in: tab.id)
+                },
+                onTitleBarTap: {
+                  let wasAlreadyFocused = focusedTabID == tab.id
+                  if let activeSurface = state.surfaceView(for: tab.id) {
+                    focusCard(tab.id, surfaceView: activeSurface, states: activeStates)
+                  }
+                  let now = Date()
+                  if wasAlreadyFocused,
+                    now.timeIntervalSince(lastTitleBarTapDate) <= NSEvent.doubleClickInterval
+                  {
+                    onExitToTab()
+                  }
+                  lastTitleBarTapDate = now
                 }
               )
               .scaleEffect(canvasScale, anchor: .center)
@@ -346,8 +361,10 @@ struct CanvasView: View {
   private var canvasToolbar: some View {
     HStack(spacing: 8) {
       Button {
-        arrangeCards()
-        fitToView(canvasSize: viewportSize)
+        withAnimation(.easeInOut(duration: 0.2)) {
+          arrangeCards()
+          fitToView(canvasSize: viewportSize)
+        }
       } label: {
         Image(systemName: "rectangle.3.group")
           .font(.body)
@@ -357,8 +374,10 @@ struct CanvasView: View {
       .help("Arrange cards preserving sizes")
 
       Button {
-        organizeCards()
-        fitToView(canvasSize: viewportSize)
+        withAnimation(.easeInOut(duration: 0.2)) {
+          organizeCards()
+          fitToView(canvasSize: viewportSize)
+        }
       } label: {
         Image(systemName: "square.grid.2x2")
           .font(.body)
@@ -470,14 +489,11 @@ struct CanvasView: View {
 
   private func deactivateCanvas() {
     focusedTabID = nil
-    for state in terminalManager.activeWorktreeStates {
-      for tab in state.tabManager.tabs {
-        for surface in state.splitTree(for: tab.id).leaves() {
-          surface.setOcclusion(false)
-          surface.focusDidChange(false)
-        }
-      }
-    }
+    // Don't occlude surfaces here. In SwiftUI's if/else view swap,
+    // onAppear fires before onDisappear, so occluding here would undo
+    // WorktreeTerminalTabsView.onAppear's syncFocus() and cause blank
+    // surfaces. Cleanup of non-selected worktrees is handled by
+    // setSelectedWorktreeID in the async exit flow.
   }
 }
 

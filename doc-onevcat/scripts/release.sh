@@ -260,6 +260,20 @@ else
 fi
 log "release notes written to $NOTES_FILE"
 
+# Show release notes and ask for confirmation (skip in non-interactive / CI)
+if [[ -t 0 ]]; then
+  echo
+  echo "──── Release Notes ────"
+  cat "$NOTES_FILE"
+  echo "───────────────────────"
+  echo
+  read -rp "Proceed with release? [Y/n] " confirm
+  case "${confirm:-Y}" in
+    [Yy]*) ;;
+    *) die "release aborted by user" ;;
+  esac
+fi
+
 # ── Archive ──────────────────────────────────────────────────────────────────
 
 log "archiving Release build..."

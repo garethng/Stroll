@@ -115,6 +115,11 @@ final class WorktreeTerminalManager {
       guard id != selectedWorktreeID else { return }
       if let previousID = selectedWorktreeID, let previousState = states[previousID] {
         previousState.setAllSurfacesOccluded()
+      } else if selectedWorktreeID == nil {
+        // Leaving canvas mode: occlude all worktrees except the newly selected one.
+        for (wid, state) in states where wid != id {
+          state.setAllSurfacesOccluded()
+        }
       }
       selectedWorktreeID = id
       terminalLogger.info("Selected worktree \(id ?? "nil")")

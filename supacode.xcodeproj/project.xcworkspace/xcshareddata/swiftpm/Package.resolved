@@ -159,8 +159,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/onevcat/YiTong.git",
       "state" : {
-        "branch" : "master",
-        "revision" : "03208b0e59f01dcb9662e10aa02f4af99306d6e9"
+        "revision" : "9fe06046fc894440c664406ec1585995c6f08906",
+        "version" : "0.2.0"
       }
     }
   ],
