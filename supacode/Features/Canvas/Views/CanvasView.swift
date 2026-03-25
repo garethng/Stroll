@@ -24,7 +24,12 @@ struct CanvasView: View {
   private let cardSpacing: CGFloat = 20
 
   var body: some View {
-    CanvasScrollContainer(offset: $canvasOffset, lastOffset: $lastCanvasOffset) {
+    CanvasScrollContainer(
+      offset: $canvasOffset,
+      lastOffset: $lastCanvasOffset,
+      scale: $canvasScale,
+      lastScale: $lastCanvasScale
+    ) {
       GeometryReader { _ in
         let activeStates = terminalManager.activeWorktreeStates
         let allCardKeys = collectCardKeys(from: activeStates)
@@ -151,21 +156,7 @@ struct CanvasView: View {
   private var canvasZoomGesture: some Gesture {
     MagnifyGesture()
       .onChanged { value in
-        let newScale = max(0.25, min(2.0, lastCanvasScale * value.magnification))
-        let anchor = value.startLocation
-
-        // Keep the canvas point under the pinch center fixed:
-        // screenPos = canvasPoint * scale + offset
-        // → canvasPoint = (anchor - lastOffset) / lastScale
-        // → newOffset  = anchor - canvasPoint * newScale
-        let canvasX = (anchor.x - lastCanvasOffset.width) / lastCanvasScale
-        let canvasY = (anchor.y - lastCanvasOffset.height) / lastCanvasScale
-
-        canvasOffset = CGSize(
-          width: anchor.x - canvasX * newScale,
-          height: anchor.y - canvasY * newScale
-        )
-        canvasScale = newScale
+        applyCanvasScale(lastCanvasScale * value.magnification, anchor: value.startLocation)
       }
       .onEnded { _ in
         lastCanvasScale = canvasScale
@@ -259,6 +250,23 @@ struct CanvasView: View {
 
   private func clampHeight(_ height: CGFloat) -> CGFloat {
     max(minCardHeight, min(maxCardHeight, height))
+  }
+
+  private func applyCanvasScale(_ proposedScale: CGFloat, anchor: CGPoint) {
+    let newScale = max(0.25, min(2.0, proposedScale))
+
+    // Keep the canvas point under the zoom anchor fixed:
+    // screenPos = canvasPoint * scale + offset
+    // → canvasPoint = (anchor - lastOffset) / lastScale
+    // → newOffset  = anchor - canvasPoint * newScale
+    let canvasX = (anchor.x - lastCanvasOffset.width) / lastCanvasScale
+    let canvasY = (anchor.y - lastCanvasOffset.height) / lastCanvasScale
+
+    canvasOffset = CGSize(
+      width: anchor.x - canvasX * newScale,
+      height: anchor.y - canvasY * newScale
+    )
+    canvasScale = newScale
   }
 
   // MARK: - Organize & Fit
@@ -511,6 +519,8 @@ private struct ActiveResize {
 private struct CanvasScrollContainer<Content: View>: NSViewRepresentable {
   @Binding var offset: CGSize
   @Binding var lastOffset: CGSize
+  @Binding var scale: CGFloat
+  @Binding var lastScale: CGFloat
   @ViewBuilder var content: Content
 
   func makeCoordinator() -> CanvasScrollCoordinator {
@@ -535,6 +545,9 @@ private struct CanvasScrollContainer<Content: View>: NSViewRepresentable {
   func updateNSView(_ nsView: CanvasScrollContainerView, context: Context) {
     context.coordinator.offset = $offset
     context.coordinator.lastOffset = $lastOffset
+    context.coordinator.scale = $scale
+    context.coordinator.lastScale = $lastScale
+    nsView.scrollCoordinator = context.coordinator
     if let hosting = nsView.subviews.first as? NSHostingView<Content> {
       hosting.rootView = content
     }
@@ -544,6 +557,8 @@ private struct CanvasScrollContainer<Content: View>: NSViewRepresentable {
 private class CanvasScrollCoordinator {
   var offset: Binding<CGSize> = .constant(.zero)
   var lastOffset: Binding<CGSize> = .constant(.zero)
+  var scale: Binding<CGFloat> = .constant(1.0)
+  var lastScale: Binding<CGFloat> = .constant(1.0)
 
   func handleScroll(deltaX: CGFloat, deltaY: CGFloat) {
     let current = offset.wrappedValue
@@ -554,15 +569,75 @@ private class CanvasScrollCoordinator {
     offset.wrappedValue = newOffset
     lastOffset.wrappedValue = newOffset
   }
+
+  func handleZoom(delta: CGFloat, anchor: CGPoint) {
+    let currentScale = lastScale.wrappedValue
+    let zoomFactor = exp(-delta * 0.003)
+    let proposedScale = currentScale * zoomFactor
+    let newScale = max(0.25, min(2.0, proposedScale))
+    let currentOffset = lastOffset.wrappedValue
+
+    let canvasX = (anchor.x - currentOffset.width) / currentScale
+    let canvasY = (anchor.y - currentOffset.height) / currentScale
+
+    let newOffset = CGSize(
+      width: anchor.x - canvasX * newScale,
+      height: anchor.y - canvasY * newScale
+    )
+
+    scale.wrappedValue = newScale
+    lastScale.wrappedValue = newScale
+    offset.wrappedValue = newOffset
+    lastOffset.wrappedValue = newOffset
+  }
 }
 
 private class CanvasScrollContainerView: NSView {
   var scrollCoordinator: CanvasScrollCoordinator?
+  private var scrollMonitor: Any?
+
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    if window == nil {
+      removeScrollMonitor()
+    } else {
+      installScrollMonitorIfNeeded()
+    }
+  }
+
+  deinit {
+    removeScrollMonitor()
+  }
 
   override func scrollWheel(with event: NSEvent) {
     scrollCoordinator?.handleScroll(
       deltaX: event.scrollingDeltaX,
       deltaY: event.scrollingDeltaY
     )
+  }
+
+  private func installScrollMonitorIfNeeded() {
+    guard scrollMonitor == nil else { return }
+    scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+      guard let self, self.shouldHandleCanvasZoom(for: event) else { return event }
+      let location = self.convert(event.locationInWindow, from: nil)
+      let delta = abs(event.scrollingDeltaY) >= abs(event.scrollingDeltaX) ? event.scrollingDeltaY : event.scrollingDeltaX
+      self.scrollCoordinator?.handleZoom(delta: delta, anchor: location)
+      return nil
+    }
+  }
+
+  private func removeScrollMonitor() {
+    if let scrollMonitor {
+      NSEvent.removeMonitor(scrollMonitor)
+      self.scrollMonitor = nil
+    }
+  }
+
+  private func shouldHandleCanvasZoom(for event: NSEvent) -> Bool {
+    guard event.window == window else { return false }
+    guard event.modifierFlags.contains(.command) else { return false }
+    let location = convert(event.locationInWindow, from: nil)
+    return bounds.contains(location)
   }
 }
