@@ -20,9 +20,6 @@ struct CanvasCardView: View {
   @Environment(GhosttyShortcutManager.self)
   private var ghosttyShortcuts
 
-  @Environment(GhosttyShortcutManager.self)
-  private var ghosttyShortcuts
-
   enum CardResizeEdge {
     case leading, trailing, top, bottom
     case topLeading, topTrailing, bottomLeading, bottomTrailing
