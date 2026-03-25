@@ -605,7 +605,7 @@ private class CanvasScrollContainerView: NSView {
     }
   }
 
-  deinit {
+  isolated deinit {
     removeScrollMonitor()
   }
 

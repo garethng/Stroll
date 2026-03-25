@@ -206,18 +206,6 @@ struct WorktreeCommands: Commands {
   }
 }
 
-private struct KeyboardShortcutModifier: ViewModifier {
-  let shortcut: KeyboardShortcut?
-
-  func body(content: Content) -> some View {
-    if let shortcut {
-      content.keyboardShortcut(shortcut)
-    } else {
-      content
-    }
-  }
-}
-
 private struct ArchiveWorktreeActionKey: FocusedValueKey {
   typealias Value = () -> Void
 }
